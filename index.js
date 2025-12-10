@@ -84,7 +84,7 @@ async function run() {
     });
 
     app.post('/user/social-login', verifyFBToken, async (req, res) => {
-      console.log('request coming');
+      // console.log('request coming');
       const { email, uid } = res.locals.tokenData;
       const { displayName, photoURL } = req.body;
 
