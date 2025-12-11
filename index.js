@@ -2,7 +2,7 @@ const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
-
+const stripe = require('stripe')(process.env.STRIPE);
 const admin = require('./utils/firebaseAdmin');
 
 const app = express();
@@ -107,6 +107,81 @@ async function run() {
       res.send(createdUser);
     });
 
+    app.post('/user/update-profile', verifyFBToken, async (req, res) => {
+      const { email } = res.locals.tokenData;
+      const { displayName, photoURL } = req.body;
+
+      const updatedUserData = await usersCollection.findOneAndUpdate(
+        { email },
+        {
+          $set: {
+            displayName,
+            photoURL,
+          },
+        },
+        {
+          returnDocument: 'after',
+        }
+      );
+      res.send(updatedUserData);
+    });
+
+    // Staff routes
+    app.get('/admin/staff-list', verifyFBToken, async (req, res) => {
+      const staffUsers = await usersCollection.find({ role: 'staff' }).toArray();
+
+      res.send(staffUsers);
+    });
+
+    app.post('/admin/create-new-staff', verifyFBToken, async (req, res) => {
+      const { email, password, name, photoURL, number } = req.body;
+
+      const newFirebaseUser = await admin.auth().createUser({
+        email,
+        password,
+        displayName: name,
+        photoURL,
+      });
+
+      const newStaffProfile = {
+        uid: newFirebaseUser.uid,
+        email,
+        displayName: name,
+        photoURL,
+        number,
+        createAt: new Date(),
+        updatedAt: new Date(),
+        role: 'staff',
+      };
+      const result = await usersCollection.insertOne(newStaffProfile);
+
+      res.send(result);
+    });
+
+    app.patch('/admin/update-staff-profile', verifyFBToken, async (req, res) => {
+      const { email, displayName, photoURL, number } = req.body;
+
+      await usersCollection.findOneAndUpdate(
+        { email },
+        {
+          $set: {
+            displayName,
+            photoURL,
+            number,
+          },
+        }
+      );
+
+      res.send('staff profile updated');
+    });
+
+    app.delete('/admin/staff/:id', async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await usersCollection.deleteOne(query);
+      res.send(result);
+    });
+
     // issue routes
     app.get('/issues', async (req, res) => {
       const result = await reportGetCollection.find().toArray();
@@ -124,6 +199,14 @@ async function run() {
       const userEmail = req.params.email;
 
       const result = await reportGetCollection.find({ email: userEmail }).toArray();
+      res.send(result);
+    });
+
+    // payment
+    app.get('/issue/payment/:id', async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await reportGetCollection.findOne(query);
       res.send(result);
     });
 
@@ -146,12 +229,55 @@ async function run() {
       res.send(result);
     });
 
+    //  upvotes
+    app.patch('/issue/upvotes', async (req, res) => {
+      const { _id } = req.body;
+
+      const result = await reportGetCollection.findOneAndUpdate(
+        { _id: new ObjectId(_id) },
+        {
+          $inc: { upvotes: 1 }, //
+        },
+        { returnDocument: 'after' }
+      );
+      res.send(result);
+    });
+
     app.delete('/issues/:id', async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await reportGetCollection.deleteOne(query);
       res.send(result);
     });
+
+    // payment related apis
+
+  //   app.post('/create-checkout-session', async (req, res) => {
+  //     const { email, issueId } = req.body;
+  //     const session = await stripe.checkout.sessions.create({
+  //       line_items: [
+  //         {
+  //           // Provide the exact Price ID (for example, price_1234) of the product you want to sell
+  //           price_data: {
+  //             currency:'USD',
+  //             unit_amount:'price_1N2ABCDEF12345'
+  //           },
+  //           quantity: 1,
+  //         },
+  //       ],
+
+  //       customer_email:email,
+  //       mode: 'payment',
+  //       metadata:{
+  //         issueId: issueId
+  //       },
+  //       success_url: `${process.env.DOMAIN}/payment-success`,
+  //       success_url: `${process.env.DOMAIN}/payment-cancel`,
+  //     });
+  //  console.log(session)
+  //     res.send({url: session.url});
+  //   });
+
     // Send a ping to confirm a successful connection
     await client.db('admin').command({ ping: 1 });
     console.log('Pinged your deployment. You successfully connected to MongoDB!');
