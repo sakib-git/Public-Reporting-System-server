@@ -54,164 +54,83 @@ async function run() {
     const reportGetCollection = db.collection('ReportGet');
 
 
-    // CREATE USER
-app.post('/user/create', verifyFBToken, async (req, res) => {
-  try {
-    const { email, uid } = res.locals.tokenData;
-    const { displayName, photoURL } = req.body;
-
-    const existingUser = await usersCollection.findOne({ email });
-    if (existingUser) {
-      return res.status(200).send(existingUser);
-    }
-
-    const newUser = {
-      uid,
-      email,
-      role: 'user',
-      displayName,
-      photoURL,
-      createdAT: new Date(),
-      updatedAT: new Date(),
-    };
-
-    const result = await usersCollection.insertOne(newUser);
-    const createdUser = await usersCollection.findOne({ email });
-
-    res.send(createdUser);
-  } catch (err) {
-    res.status(500).send('Internal Server Error');
-  }
-});
-
 
     // user routes
-    // app.post('/user/create', verifyFBToken, async (req, res) => {
-    //   const { email, uid } = res.locals.tokenData;
-    //   const { displayName, photoURL } = req.body;
+    app.post('/user/create', verifyFBToken, async (req, res) => {
+      const { email, uid } = res.locals.tokenData;
+      const { displayName, photoURL } = req.body;
 
-    //   const user = await usersCollection.findOne({ email });
-    //   if (user) return res.status(400).send('user already exists');
+      const user = await usersCollection.findOne({ email });
+      if (user) return res.status(400).send('user already exists');
 
-    //   const newUserData = {
-    //     uid,
-    //     email,
-    //     role: 'user',
-    //     displayName,
-    //     photoURL,
-    //     createdAT: new Date(),
-    //     updatedAT: new Date(),
-    //   };
+      const newUserData = {
+        uid,
+        email,
+        role: 'user',
+        displayName,
+        photoURL,
+        createdAT: new Date(),
+        updatedAT: new Date(),
+      };
 
-    //   await usersCollection.insertOne(newUserData);
-    //   const createdUser = await usersCollection.findOne({ email });
+      await usersCollection.insertOne(newUserData);
+      const createdUser = await usersCollection.findOne({ email });
 
-    //   res.send(createdUser);
-    // });
-
-    // app.get('/user/user-profile', verifyFBToken, async (req, res) => {
-    //   const { email } = res.locals.tokenData;
-    //   const user = await usersCollection.findOne({ email });
-    //   res.send(user);
-    // });
+      res.send(createdUser);
+    });
 
     app.get('/user/user-profile', verifyFBToken, async (req, res) => {
-  try {
-    const { email } = res.locals.tokenData;
-    const user = await usersCollection.findOne({ email });
-    res.send(user || null);
-  } catch (err) {
-    res.status(500).send('Internal Server Error');
-  }
-});
+      const { email } = res.locals.tokenData;
+      const user = await usersCollection.findOne({ email });
+      res.send(user);
+    });
 
-
-    // app.post('/user/social-login', verifyFBToken, async (req, res) => {
-    //   // console.log('request coming');
-    //   const { email, uid } = res.locals.tokenData;
-    //   const { displayName, photoURL } = req.body;
-
-    //   const user = await usersCollection.findOne({ email });
-    //   if (user) return res.send(user);
-
-    //   const newUserData = {
-    //     uid,
-    //     email,
-    //     role: 'user',
-    //     displayName,
-    //     photoURL,
-    //     createdAT: new Date(),
-    //     updatedAT: new Date(),
-    //   };
-
-    //   await usersCollection.insertOne(newUserData);
-    //   const createdUser = await usersCollection.findOne({ email });
-
-    //   res.send(createdUser);
-    // });
-
+ 
     app.post('/user/social-login', verifyFBToken, async (req, res) => {
-  try {
-    const { email, uid } = res.locals.tokenData;
-    const { displayName, photoURL } = req.body;
+      // console.log('request coming');
+      const { email, uid } = res.locals.tokenData;
+      const { displayName, photoURL } = req.body;
 
-    const existingUser = await usersCollection.findOne({ email });
-    if (existingUser) return res.send(existingUser);
+      const user = await usersCollection.findOne({ email });
+      if (user) return res.send(user);
 
-    const newUser = {
-      uid,
-      email,
-      role: 'user',
-      displayName,
-      photoURL,
-      createdAT: new Date(),
-      updatedAT: new Date(),
-    };
+      const newUserData = {
+        uid,
+        email,
+        role: 'user',
+        displayName,
+        photoURL,
+        createdAT: new Date(),
+        updatedAT: new Date(),
+      };
 
-    await usersCollection.insertOne(newUser);
-    const createdUser = await usersCollection.findOne({ email });
+      await usersCollection.insertOne(newUserData);
+      const createdUser = await usersCollection.findOne({ email });
 
-    res.send(createdUser);
-  } catch (err) {
-    res.status(500).send('Internal Server Error');
-  }
-});
+      res.send(createdUser);
+    });
 
 
-    // app.post('/user/update-profile', verifyFBToken, async (req, res) => {
-    //   const { email } = res.locals.tokenData;
-    //   const { displayName, photoURL } = req.body;
 
-    //   const updatedUserData = await usersCollection.findOneAndUpdate(
-    //     { email },
-    //     {
-    //       $set: {
-    //         displayName,
-    //         photoURL,
-    //       },
-    //     },
-    //     {
-    //       returnDocument: 'after',
-    //     }
-    //   );
-    //   res.send(updatedUserData);
-    // });
-app.post('/user/update-profile', verifyFBToken, async (req, res) => {
-  try {
-    const { email } = res.locals.tokenData;
-    const { displayName, photoURL } = req.body;
+    app.post('/user/update-profile', verifyFBToken, async (req, res) => {
+      const { email } = res.locals.tokenData;
+      const { displayName, photoURL } = req.body;
 
-    const updatedUser = await usersCollection.findOneAndUpdate(
-      { email },
-      { $set: { displayName, photoURL, updatedAT: new Date() } },
-      { returnDocument: 'after' }
-    );
-
-    res.send(updatedUser);
-  } catch (err) {
-    res.status(500).send('Internal Server Error');
-  }
-});
+      const updatedUserData = await usersCollection.findOneAndUpdate(
+        { email },
+        {
+          $set: {
+            displayName,
+            photoURL,
+          },
+        },
+        {
+          returnDocument: 'after',
+        }
+      );
+      res.send(updatedUserData);
+    });
+ 
 
     // Staff routes
     app.get('/admin/staff-list', verifyFBToken, async (req, res) => {
@@ -316,26 +235,32 @@ app.post('/user/update-profile', verifyFBToken, async (req, res) => {
       res.send(result);
     });
 
-    //  upvotes
-    app.patch('/issue/upvotes', async (req, res) => {
-      const { _id } = req.body;
+ 
 
-      const result = await reportGetCollection.findOneAndUpdate(
-        { _id: new ObjectId(_id) },
-        {
-          $inc: { upvotes: 1 }, //
-        },
-        { returnDocument: 'after' }
-      );
-      res.send(result);
-    });
+    // upvotes
+app.patch('/issue/upvotes', verifyFBToken, async (req, res) => {
+  const { _id } = req.body;
+  const { uid } = res.locals.tokenData; 
 
-    app.delete('/issues/:id', async (req, res) => {
-      const id = req.params.id;
-      const query = { _id: new ObjectId(id) };
-      const result = await reportGetCollection.deleteOne(query);
-      res.send(result);
-    });
+  const issue = await reportGetCollection.findOne({
+    _id: new ObjectId(_id),
+  });
+
+  if (!issue) return res.status(404).send('Issue not found');
+
+  if (issue.createdBy === uid) {
+    return res.status(403).send('You cannot upvote your own issue');
+  }
+
+  const updated = await reportGetCollection.findOneAndUpdate(
+    { _id: new ObjectId(_id) },
+    { $inc: { upvotes: 1 } },
+    { returnDocument: 'after' }
+  );
+
+  res.send(updated);
+});
+
 
     // payment related apis
 
@@ -346,23 +271,23 @@ app.post('/user/update-profile', verifyFBToken, async (req, res) => {
           {
             // Provide the exact Price ID (for example, price_1234) of the product you want to sell
             price_data: {
-              currency:'USD',
-              unit_amount:'price_1N2ABCDEF12345'
+              currency: 'USD',
+              unit_amount: 'price_1N2ABCDEF12345',
             },
             quantity: 1,
           },
         ],
 
-        customer_email:email,
+        customer_email: email,
         mode: 'payment',
-        metadata:{
-          issueId: issueId
+        metadata: {
+          issueId: issueId,
         },
         success_url: `${process.env.DOMAIN}/payment-success`,
         success_url: `${process.env.DOMAIN}/payment-cancel`,
       });
-   console.log(session)
-      res.send({url: session.url});
+      console.log(session);
+      res.send({ url: session.url });
     });
 
     // Send a ping to confirm a successful connection
