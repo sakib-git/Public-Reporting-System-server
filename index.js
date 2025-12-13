@@ -192,11 +192,49 @@ async function run(callback) {
       res.send(result);
     });
 
-    // issue routes
-    app.get('/issues', async (req, res) => {
-      const result = await reportGetCollection.find().toArray();
-      res.send(result);
-    });
+
+
+app.get('/issues', async (req, res) => {
+  try {
+    const { limit = 7, skip = 0, category, search } = req.query;
+
+    const query = {};
+
+    // Category filter
+    if (category) {
+      query.category = category;
+    }
+
+    // Search filter 
+    if (search) {
+      query.$or = [
+        { title: { $regex: search, $options: 'i' } },
+        { location: { $regex: search, $options: 'i' } },
+      ];
+    }
+
+
+    const result = await reportGetCollection
+      .find(query)
+      .sort({ category: 1 }) // A → Z
+      .skip(Number(skip))
+      .limit(Number(limit))
+      .project({ description: 0 })
+      .toArray();
+
+    const count = await reportGetCollection.countDocuments(query);
+
+    res.send({ result, total: count });
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ message: 'Server error' });
+  }
+});
+
+
+
+
+
 
     app.get('/issues/:id', async (req, res) => {
       const id = req.params.id;
@@ -219,6 +257,7 @@ async function run(callback) {
       const result = await reportGetCollection.findOne(query);
       res.send(result);
     });
+
     app.patch('/issue/update-status/:id', async (req, res) => {
       const id = req.params.id;
       const { priority } = req.body;
@@ -263,8 +302,18 @@ async function run(callback) {
       if (issue.createdBy === uid) {
         return res.status(403).send('You cannot upvote your own issue');
       }
+      if (issue.upvotedBy?.includes(uid)) {
+        return res.status(400).send({ message: 'You already upvoted this issue' });
+      }
 
-      const updated = await reportGetCollection.findOneAndUpdate({ _id: new ObjectId(_id) }, { $inc: { upvotes: 1 } }, { returnDocument: 'after' });
+      const updated = await reportGetCollection.findOneAndUpdate(
+        { _id: new ObjectId(_id) },
+        {
+          $inc: { upvotes: 1 },
+          $addToSet: { upvotedBy: uid },
+        },
+        { returnDocument: 'after' }
+      );
 
       res.send(updated);
     });
@@ -298,6 +347,7 @@ async function run(callback) {
         res.status(500).send({ error: 'Stripe session creation failed' });
       }
     });
+
     callback(null);
   } catch (err) {
     callback(err);
