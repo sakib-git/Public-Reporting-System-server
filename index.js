@@ -56,6 +56,7 @@ async function run(callback) {
 
     const usersCollection = db.collection('users');
     const reportGetCollection = db.collection('ReportGet');
+    const assignedIssues = db.collection('assignedIssues');
 
     // user routes
     app.post('/user/create', verifyFBToken, async (req, res) => {
@@ -71,6 +72,7 @@ async function run(callback) {
         role: 'user',
         displayName,
         photoURL,
+        isSubscribed: false,
         createdAT: new Date(),
         updatedAT: new Date(),
       };
@@ -101,6 +103,7 @@ async function run(callback) {
         role: 'user',
         displayName,
         photoURL,
+        isSubscribed: false,
         createdAT: new Date(),
         updatedAT: new Date(),
       };
@@ -192,42 +195,78 @@ async function run(callback) {
       res.send(result);
     });
 
+    app.post('/admin/assign-issue', verifyFBToken, async (req, res) => {
+      const { issueId, staffEmail } = req.body;
+      const assignment = {
+        issueId,
+        staffEmail,
+        assignedAt: new Date(),
+      };
+      assignedIssues.insertOne(assignment);
+      res.send({ message: 'Issue assigned to staff successfully' });
+    });
+
+    // app.get('/staff/assigned-issues', verifyFBToken, async (req, res) => {
+    //   const { email } = res.locals.tokenData;
+    //   const assignments = await assignedIssues.find({ staffEmail: email }).toArray();
+    //   const issueIds = assignments.map((a) => new ObjectId(a.issueId));
+
+    //   const issues = await reportGetCollection.find({ _id: { $in: issueIds } }).toArray();
+
+    //   const sanitizedIssues = assignments.map((assignment) => {
+    //     console.log(assignment);
+    //     const issue = issues.find((issue) => issue._id.toString() === assignment.issueId);
+    //     return {
+    //       issueId: issue._id,
+    //       title: issue.title,
+    //       status: issue.status,
+    //     };
+    //   });
+
+    //   res.send(sanitizedIssues);
+    // });
 
 
-app.get('/issues', async (req, res) => {
+
+
+
+
+app.get('/staff/assigned-issues', verifyFBToken, async (req, res) => {
   try {
-    const { limit = 7, skip = 0, category, search } = req.query;
+    const { email } = res.locals.tokenData;
 
-    const query = {};
-
-    // Category filter
-    if (category) {
-      query.category = category;
-    }
-
-    // Search filter 
-    if (search) {
-      query.$or = [
-        { title: { $regex: search, $options: 'i' } },
-        { location: { $regex: search, $options: 'i' } },
-      ];
-    }
-
-
-    const result = await reportGetCollection
-      .find(query)
-      .sort({ category: 1 }) // A → Z
-      .skip(Number(skip))
-      .limit(Number(limit))
-      .project({ description: 0 })
+    const assignments = await assignedIssues
+      .find({ staffEmail: email })
       .toArray();
 
-    const count = await reportGetCollection.countDocuments(query);
+    const issueIds = assignments.map(
+      (a) => new ObjectId(a.issueId)
+    );
 
-    res.send({ result, total: count });
+    const issues = await reportGetCollection
+      .find({ _id: { $in: issueIds } })
+      .toArray();
+
+    const sanitizedIssues = assignments
+      .map((assignment) => {
+        const issue = issues.find(
+          (i) => i._id.equals(new ObjectId(assignment.issueId))
+        );
+
+        if (!issue) return null;
+
+        return {
+          issueId: issue._id,
+          title: issue.title,
+          status: issue.status,
+        };
+      })
+      .filter(Boolean); // remove nulls
+
+    res.send(sanitizedIssues);
   } catch (error) {
     console.error(error);
-    res.status(500).send({ message: 'Server error' });
+    res.status(500).send({ message: 'Failed to load assigned issues' });
   }
 });
 
@@ -235,6 +274,47 @@ app.get('/issues', async (req, res) => {
 
 
 
+
+
+    app.patch('/staff/update-issue-status', verifyFBToken, async (req, res) => {
+      const { issueId, status } = req.body;
+
+      const query = { _id: new ObjectId(issueId) };
+      await reportGetCollection.findOneAndUpdate(query, {
+        $set: {
+          status,
+        },
+      });
+      res.send('tham betta');
+    });
+
+    // issue routes
+    app.get('/issues', async (req, res) => {
+      try {
+        const { limit = 7, skip = 0, category, search } = req.query;
+
+        const query = {};
+
+        // Category filter
+        if (category) {
+          query.category = category;
+        }
+
+        // Search filter
+        if (search) {
+          query.$or = [{ title: { $regex: search, $options: 'i' } }, { location: { $regex: search, $options: 'i' } }];
+        }
+
+        const result = await reportGetCollection.find(query).sort({ priority: 1 }).skip(Number(skip)).limit(Number(limit)).project({ description: 0 }).toArray();
+
+        const count = await reportGetCollection.countDocuments(query);
+
+        res.send({ result, total: count });
+      } catch (error) {
+        console.error(error);
+        res.status(500).send({ message: 'Server error' });
+      }
+    });
 
     app.get('/issues/:id', async (req, res) => {
       const id = req.params.id;
@@ -250,6 +330,18 @@ app.get('/issues', async (req, res) => {
       res.send(result);
     });
 
+    app.delete('/issues/:id', async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await reportGetCollection.deleteOne(query);
+      res.send(result);
+    });
+    app.patch('/issues/update-issue-status', async (req, res) => {
+      const { issueId, status } = req.body;
+      const query = { _id: new ObjectId(issueId) };
+      const result = await reportGetCollection.updateOne(query, { $set: { status } });
+      res.send(result);
+    });
     // payment
     app.get('/issue/payment/:id', async (req, res) => {
       const id = req.params.id;
@@ -318,10 +410,17 @@ app.get('/issues', async (req, res) => {
       res.send(updated);
     });
 
-    // payment related apis
-
     app.post('/create-checkout-session', async (req, res) => {
       const { email, issueId } = req.body;
+
+      const issue = await reportGetCollection.findOne({
+        _id: new ObjectId(issueId),
+      });
+
+      const boostPriceBDT = issue.boostPrice;
+      const usdRate = 110;
+      const priceInUSD = boostPriceBDT / usdRate;
+
       try {
         const session = await stripe.checkout.sessions.create({
           payment_method_types: ['card'],
@@ -329,8 +428,10 @@ app.get('/issues', async (req, res) => {
             {
               price_data: {
                 currency: 'usd',
-                unit_amount: 1 * 100,
-                product_data: { name: 'Premium Subscription' },
+                unit_amount: Math.round(priceInUSD * 100),
+                product_data: {
+                  name: 'Issue Boost',
+                },
               },
               quantity: 1,
             },
@@ -338,13 +439,13 @@ app.get('/issues', async (req, res) => {
           mode: 'payment',
           customer_email: email,
           metadata: { issueId },
-          success_url: `${process.env.DOMAIN}/payment-success`,
+          success_url: `${process.env.DOMAIN}/payment-success?issueId=${issueId}`,
           cancel_url: `${process.env.DOMAIN}/payment-cancel`,
         });
+
         res.send({ url: session.url });
       } catch (error) {
-        console.log(error);
-        res.status(500).send({ error: 'Stripe session creation failed' });
+        res.status(500).send({ error: 'Stripe session failed' });
       }
     });
 
