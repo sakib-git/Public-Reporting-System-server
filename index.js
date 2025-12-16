@@ -427,7 +427,7 @@ async function run(callback) {
       });
 
       const boostPriceBDT = issue.boostPrice;
-      const usdRate = 110;
+      const usdRate = 100;
       const priceInUSD = boostPriceBDT / usdRate;
 
       try {
