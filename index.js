@@ -352,11 +352,12 @@ async function run(callback) {
         _id: new ObjectId(_id),
       });
 
-      if (!issue) return res.status(404).send('Issue not found');
-
       if (issue.createdBy === uid) {
         return res.status(403).send('You cannot upvote your own issue');
       }
+
+      if (!issue) return res.status(404).send('Issue not found');
+
       if (issue.upvotedBy?.includes(uid)) {
         return res.status(400).send({ message: 'You already upvoted this issue' });
       }
@@ -387,8 +388,6 @@ async function run(callback) {
 
       res.send(result);
     });
-
-    
 
     app.patch('/users/block/:id', async (req, res) => {
       const id = req.params.id;
