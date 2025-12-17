@@ -204,17 +204,25 @@ async function run(callback) {
 
     app.post('/admin/assign-issue', verifyFBToken, async (req, res) => {
       const { issueId, staffEmail } = req.body;
+
       const assignment = {
         issueId,
         staffEmail,
         assignedAt: new Date(),
       };
-      assignedIssues.insertOne(assignment);
+
+      await assignedIssues.insertOne(assignment);
+      await reportGetCollection.findOneAndUpdate(
+        { _id: new ObjectId(issueId) },
+        {
+          $set: {
+            isAssigned: true,
+          },
+        }
+      );
+
       res.send({ message: 'Issue assigned to staff successfully' });
     });
-
-
-
 
     app.get('/staff/assigned-issues', verifyFBToken, async (req, res) => {
       try {
@@ -236,6 +244,7 @@ async function run(callback) {
               issueId: issue._id,
               title: issue.title,
               status: issue.status,
+              assignedAt: assignment.assignedAt,
             };
           })
           .filter(Boolean); // remove nulls
