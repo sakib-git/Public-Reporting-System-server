@@ -270,7 +270,9 @@ async function run(callback) {
 
         // Search filter
         if (search) {
-          query.$or = [{ title: { $regex: search, $options: 'i' } }, { location: { $regex: search, $options: 'i' } }];
+          query.$or = [{ title: { $regex: search, $options: 'i' } },
+             { location: { $regex: search, $options: 'i' } },
+             { status: { $regex: search, $options: 'i' } }];
         }
 
         const result = await reportGetCollection.find(query).limit(limit).sort({ priority: 1 }).skip(Number(skip)).project({ description: 0 }).toArray();
